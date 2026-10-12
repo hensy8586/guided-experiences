@@ -31,7 +31,13 @@ Then open [http://localhost:3000](http://localhost:3000).
 
 ## Deployment
 
-Deploy through Vercel's GitHub integration:
+The production application is live on Vercel through its GitHub integration.
+GitHub's `main` branch remains the production deployment path. Vercel detected
+Next.js, uses the existing `npm run build` script (`next build --webpack`), and
+serves the application over HTTPS. No `vercel.json`, custom CI/CD, or other
+deployment infrastructure is needed.
+
+For future deployments:
 
 1. Push this repository to GitHub on the `main` branch.
 2. Sign in to [Vercel](https://vercel.com) and import the
@@ -43,10 +49,8 @@ Deploy through Vercel's GitHub integration:
 5. Deploy, then open the resulting HTTPS URL.
 6. Confirm the map loads before testing location or compass permissions.
 
-No `vercel.json`, custom output directory, or custom install setting is needed.
-Vercel detects `package-lock.json` and uses `npm install`. It then runs the
-existing `npm run build` script, which intentionally uses
-`next build --webpack`.
+Vercel detects `package-lock.json` and uses `npm install`. No custom output
+directory or install setting is needed.
 
 ### Mapbox token guidance
 
@@ -68,6 +72,16 @@ Use the deployed Vercel HTTPS URL for field testing.
 Device heading is an optional enhancement and varies by browser and hardware. iPhone Safari may require explicit motion and orientation permission, while many desktop browsers do not provide a useful compass heading. Test mobile heading behavior on the deployed HTTPS site.
 
 ## Mobile field testing
+
+### Initial phone validation
+
+The deployed HTTPS application passed an initial real-phone check: the app and
+Mapbox map loaded, browser location permission and user location worked, and
+the prototype behaved correctly. Compass support also appeared to work, but
+that result is preliminary until an outdoor daytime walking test is completed.
+
+HTTPS provided the required secure context for real-device geolocation and
+orientation testing.
 
 Before walking with the prototype, update the nearby safe test destination in
 [`src/data/destination.ts`](src/data/destination.ts). Edit the `name`,
@@ -99,6 +113,15 @@ change.
 - Walk away and confirm distance generally increases.
 - Note GPS jitter and the reported accuracy; small distance fluctuations are
   expected.
+
+### Remaining field testing
+
+- Complete an outdoor GPS-distance walking test toward and away from a nearby
+  safe destination.
+- Complete a daytime compass comparison while walking, including multiple
+  directions and likely sources of magnetic interference.
+- Record GPS jitter, heading agreement, and app-switch behavior using the notes
+  template below.
 
 ### Compass
 
