@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Map as MapboxMap, Marker as MapboxMarker } from "mapbox-gl";
 import {
   useGeolocation,
@@ -68,6 +68,7 @@ function placeUserMarker(
 function updateUserMarkerHeading(
   marker: MapboxMarker,
   heading: number | null,
+  bearing: number,
 ) {
   const markerElement = marker.getElement();
   let indicator = markerElement.querySelector<HTMLElement>(
@@ -103,7 +104,7 @@ function updateUserMarkerHeading(
   }
 
   indicator.removeAttribute("hidden");
-  indicator.style.transform = `rotate(${heading}deg)`;
+  indicator.style.transform = `rotate(${heading - bearing}deg)`;
 }
 
 function formatDistance(distanceInMeters: number) {
@@ -116,6 +117,7 @@ function formatDistance(distanceInMeters: number) {
 }
 
 export function Map() {
+  const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "error">("loading");
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
   const mapboxglRef = useRef<MapboxGl | null>(null);
@@ -140,6 +142,25 @@ export function Map() {
     let cancelled = false;
     let map: MapboxMap | null = null;
 
+    function updateHeadingForBearing() {
+      if (map && markerRef.current) {
+        updateUserMarkerHeading(markerRef.current, latestHeadingRef.current, map.getBearing());
+      }
+    }
+
+    function disposeMap() {
+      markerRef.current?.remove();
+      markerRef.current = null;
+      destinationMarkerRef.current?.remove();
+      destinationMarkerRef.current = null;
+      map?.off("rotate", updateHeadingForBearing);
+      map?.remove();
+      if (mapRef.current === map) mapRef.current = null;
+      map = null;
+      mapboxglRef.current = null;
+      hasCenteredOnUserRef.current = false;
+    }
+
     async function initializeMap() {
       const mapboxgl = (await import("mapbox-gl")).default;
 
@@ -156,6 +177,7 @@ export function Map() {
       });
       mapRef.current = map;
       mapboxglRef.current = mapboxgl;
+      map.on("rotate", updateHeadingForBearing);
 
       const destinationMarker = new mapboxgl.Marker({ color: "#dc2626" })
         .setLngLat([
@@ -179,6 +201,7 @@ export function Map() {
         updateUserMarkerHeading(
           markerRef.current,
           latestHeadingRef.current,
+          map.getBearing(),
         );
         map.easeTo({
           center: [currentPosition.longitude, currentPosition.latitude],
@@ -187,23 +210,18 @@ export function Map() {
         });
         hasCenteredOnUserRef.current = true;
       }
+      setMapStatus("ready");
     }
 
-    void initializeMap();
+    void initializeMap().catch(() => {
+      if (cancelled) return;
+      disposeMap();
+      setMapStatus("error");
+    });
 
     return () => {
       cancelled = true;
-      markerRef.current?.remove();
-      markerRef.current = null;
-      destinationMarkerRef.current?.remove();
-      destinationMarkerRef.current = null;
-      map?.remove();
-      mapboxglRef.current = null;
-      hasCenteredOnUserRef.current = false;
-
-      if (mapRef.current === map) {
-        mapRef.current = null;
-      }
+      disposeMap();
     };
   }, [accessToken]);
 
@@ -229,7 +247,7 @@ export function Map() {
       markerRef.current,
       position,
     );
-    updateUserMarkerHeading(markerRef.current, latestHeadingRef.current);
+    updateUserMarkerHeading(markerRef.current, latestHeadingRef.current, map.getBearing());
 
     if (!hasCenteredOnUserRef.current) {
       map.easeTo({
@@ -244,8 +262,8 @@ export function Map() {
   useEffect(() => {
     latestHeadingRef.current = heading;
 
-    if (markerRef.current) {
-      updateUserMarkerHeading(markerRef.current, heading);
+    if (markerRef.current && mapRef.current) {
+      updateUserMarkerHeading(markerRef.current, heading, mapRef.current.getBearing());
     }
   }, [heading]);
 
@@ -259,7 +277,7 @@ export function Map() {
     ? getDistanceInMeters(position, TEST_DESTINATION)
     : null;
   const distanceLabel =
-    distance === null ? "Distance unavailable" : `${formatDistance(distance)} away`;
+    distance === null ? "Distance unavailable" : `${formatDistance(distance)} away${status === "error" ? " (last known)" : ""}`;
   const canRequestHeading =
     headingStatus === "permission-required" ||
     headingStatus === "permission-denied";
@@ -312,6 +330,11 @@ export function Map() {
           map.
         </div>
       )}
+      {accessToken && mapStatus === "error" && (
+        <p className="border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950" role="alert">
+          The map could not start. Check that WebGL is available and reload the page.
+        </p>
+      )}
 
       <div className="-mt-px overflow-hidden rounded-b-2xl border border-stone-200 bg-white">
         <div className="p-4 sm:p-5">
@@ -342,7 +365,7 @@ export function Map() {
             <button
               type="button"
               onClick={centerOnUser}
-              disabled={!position || !accessToken}
+              disabled={!position || !accessToken || mapStatus !== "ready"}
               className="min-h-11 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm font-semibold text-stone-800 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 active:bg-stone-200 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400"
             >
               Center on me
@@ -350,7 +373,7 @@ export function Map() {
             <button
               type="button"
               onClick={showDestination}
-              disabled={!accessToken}
+              disabled={!accessToken || mapStatus !== "ready"}
               className="min-h-11 rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm font-semibold text-stone-800 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 active:bg-stone-200 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400"
             >
               Show destination
@@ -384,7 +407,7 @@ export function Map() {
                   </button>
                 )}
               </div>
-              <p className="mt-1 text-sm text-stone-700" aria-live="polite">
+              <p className="mt-1 text-sm text-stone-700">
                 {headingMessage}
               </p>
             </div>
@@ -392,7 +415,7 @@ export function Map() {
 
           {position && (
             <details className="mt-3 border-t border-stone-200">
-              <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium text-stone-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-inset">
+              <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-stone-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-inset">
                 Location details
               </summary>
               <dl className="grid grid-cols-3 gap-3 pb-2 text-xs">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { normalizeHeading } from "@/lib/heading";
+import { getAbsoluteHeading, normalizeHeading } from "@/lib/heading";
 
 export type HeadingStatus =
   | "not-requested"
@@ -45,19 +45,16 @@ const INITIAL_STATE: HeadingState = {
 function getHeading(event: DeviceOrientationEvent): number | null {
   const compassEvent = event as CompassDeviceOrientationEvent;
 
-  if (
-    typeof compassEvent.webkitCompassHeading === "number" &&
-    Number.isFinite(compassEvent.webkitCompassHeading) &&
-    !(
+  if (typeof compassEvent.webkitCompassHeading === "number") {
+    if (!Number.isFinite(compassEvent.webkitCompassHeading) || (
       typeof compassEvent.webkitCompassAccuracy === "number" &&
       compassEvent.webkitCompassAccuracy < 0
-    )
-  ) {
+    )) return null;
     return normalizeHeading(compassEvent.webkitCompassHeading);
   }
 
-  if (event.absolute && event.alpha !== null && Number.isFinite(event.alpha)) {
-    return normalizeHeading(360 - event.alpha);
+  if (event.absolute && event.alpha !== null && event.beta !== null) {
+    return getAbsoluteHeading(event.alpha, event.beta);
   }
 
   return null;
@@ -76,11 +73,16 @@ export function useDeviceHeading() {
   const listenerNameRef = useRef<OrientationEventName | null>(null);
   const timeoutIdRef = useRef<number | null>(null);
   const mountedRef = useRef(false);
+  const permissionRequestRef = useRef<object | null>(null);
 
   const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
+    if (!mountedRef.current || !listenerNameRef.current) return;
     const nextHeading = getHeading(event);
 
     if (nextHeading === null) {
+      setState((currentState) => currentState.status === "available"
+        ? { status: "unavailable", heading: null, errorMessage: null }
+        : currentState);
       return;
     }
 
@@ -173,7 +175,7 @@ export function useDeviceHeading() {
       return;
     }
 
-    if (listenerNameRef.current) {
+    if (listenerNameRef.current || permissionRequestRef.current) {
       return;
     }
 
@@ -191,10 +193,12 @@ export function useDeviceHeading() {
       errorMessage: null,
     });
 
+    const request = {};
+    permissionRequestRef.current = request;
     try {
       const permission = await requestPermission.call(orientationEvent, true);
 
-      if (!mountedRef.current) {
+      if (!mountedRef.current || permissionRequestRef.current !== request) {
         return;
       }
 
@@ -209,12 +213,16 @@ export function useDeviceHeading() {
 
       startListening();
     } catch {
-      if (mountedRef.current) {
+      if (mountedRef.current && permissionRequestRef.current === request) {
         setState({
           status: "error",
           heading: null,
           errorMessage: "Compass permission could not be requested.",
         });
+      }
+    } finally {
+      if (permissionRequestRef.current === request) {
+        permissionRequestRef.current = null;
       }
     }
   }, [startListening]);
@@ -256,6 +264,7 @@ export function useDeviceHeading() {
 
     return () => {
       mountedRef.current = false;
+      permissionRequestRef.current = null;
       window.clearTimeout(setupId);
       stopListening();
     };

@@ -49,8 +49,10 @@ function getErrorMessage(error: GeolocationPositionError) {
 export function useGeolocation() {
   const [state, setState] = useState<GeolocationState>(INITIAL_STATE);
   const watcherIdRef = useRef<number | null>(null);
+  const watcherSessionRef = useRef(0);
 
   const clearWatcher = useCallback(() => {
+    watcherSessionRef.current += 1;
     if (
       watcherIdRef.current !== null &&
       typeof navigator !== "undefined" &&
@@ -82,8 +84,10 @@ export function useGeolocation() {
       errorMessage: null,
     }));
 
+    const session = ++watcherSessionRef.current;
     watcherIdRef.current = navigator.geolocation.watchPosition(
       ({ coords }) => {
+        if (watcherSessionRef.current !== session) return;
         setState({
           status: "available",
           position: {
@@ -95,6 +99,7 @@ export function useGeolocation() {
         });
       },
       (error) => {
+        if (watcherSessionRef.current !== session) return;
         if (error.code === error.PERMISSION_DENIED) {
           clearWatcher();
           setState({
