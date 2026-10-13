@@ -73,15 +73,47 @@ Device heading is an optional enhancement and varies by browser and hardware. iP
 
 ## Mobile field testing
 
-### Initial phone validation
+### Real-device field-test results
 
-The deployed HTTPS application passed an initial real-phone check: the app and
-Mapbox map loaded, browser location permission and user location worked, and
-the prototype behaved correctly. Compass support also appeared to work, but
-that result is preliminary until an outdoor daytime walking test is completed.
-
-HTTPS provided the required secure context for real-device geolocation and
+The deployed HTTPS application passed an initial outdoor walking test on a real
+phone. HTTPS provided the required secure context for geolocation and
 orientation testing.
+
+#### Verified
+
+- Production deployment, Mapbox, browser geolocation, and the map/player UI
+  work on a real mobile browser.
+- Current position can update while walking.
+- Compass heading worked in real-device use and appeared useful; no major
+  compass problem was observed during this test.
+- Distance changed as the user moved, confirming the existing geolocation →
+  Haversine distance → UI flow responds to changing location.
+
+#### Observed mobile-browser behavior
+
+- **Use my location** works, though it may occasionally need to be pressed
+  again to re-enable location sharing.
+- Location updates can lag, but most of the time the browser eventually
+  refreshed to the latest position.
+- Browser sensor lifecycle is not equivalent to native continuous location
+  tracking. These observations are expected mobile-browser behavior to
+  investigate later, not confirmed application defects.
+
+#### Not yet fully validated
+
+- Precise GPS update cadence and suitability for arrival detection.
+- Distance accuracy and monotonicity over a longer controlled route.
+- Background or locked-screen behavior suitable for a production guide.
+- Native-versus-web sensor differences.
+- Compass accuracy as a controlled sensor benchmark.
+
+### Milestone 0 assessment
+
+Milestone 0 successfully demonstrates that a mobile-web-first approach is
+viable for the initial guided-experience consumer application. A native iOS
+application is not required at this stage. The remaining mobile-browser
+limitations should inform later product design rather than block progression to
+a subsequent milestone.
 
 Before walking with the prototype, update the nearby safe test destination in
 [`src/data/destination.ts`](src/data/destination.ts). Edit the `name`,
@@ -114,14 +146,12 @@ change.
 - Note GPS jitter and the reported accuracy; small distance fluctuations are
   expected.
 
-### Remaining field testing
+### Further optional validation
 
-- Complete an outdoor GPS-distance walking test toward and away from a nearby
-  safe destination.
-- Complete a daytime compass comparison while walking, including multiple
-  directions and likely sources of magnetic interference.
-- Record GPS jitter, heading agreement, and app-switch behavior using the notes
-  template below.
+- Use a longer controlled route to assess GPS cadence and distance accuracy.
+- Compare compass readings with a native compass in varied outdoor conditions.
+- Record background, locked-screen, GPS jitter, and app-switch behavior using
+  the notes template below.
 
 ### Compass
 
