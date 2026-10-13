@@ -3,7 +3,7 @@ export type ExperienceStatus = "draft" | "published";
 export type ExperienceStop = {
   id: string;
   experienceId: string;
-  order: number;
+  position: number;
   title: string;
   description: string;
   latitude: number;

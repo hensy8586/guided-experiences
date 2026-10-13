@@ -11,7 +11,7 @@ export const SAMPLE_EXPERIENCE: Experience = {
     {
       id: "lift-bridge-overlook",
       experienceId: EXPERIENCE_ID,
-      order: 1,
+      position: 0,
       title: "Lift Bridge Overlook",
       description: "Begin near the riverfront and the historic lift bridge.",
       latitude: 45.0563,
@@ -21,7 +21,7 @@ export const SAMPLE_EXPERIENCE: Experience = {
     {
       id: "lowell-park",
       experienceId: EXPERIENCE_ID,
-      order: 2,
+      position: 1,
       title: "Lowell Park",
       description: "Continue north through the riverfront park.",
       latitude: 45.0582,
@@ -31,7 +31,7 @@ export const SAMPLE_EXPERIENCE: Experience = {
     {
       id: "pioneer-park-overlook",
       experienceId: EXPERIENCE_ID,
-      order: 3,
+      position: 2,
       title: "Pioneer Park Overlook",
       description: "Finish at an overlook above downtown and the river.",
       latitude: 45.0598,

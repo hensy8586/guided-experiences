@@ -4,7 +4,10 @@ Guided Experiences is a future platform for creators to publish location-based e
 
 ## Current milestone
 
-This initial milestone is a mobile-responsive Mapbox prototype with opt-in live browser geolocation, one test destination, straight-line distance, and optional device heading. It does not include routing, accounts, data storage, or other future product functionality.
+Milestone 0 is complete. Milestone 1 adds the Experience domain and database
+foundation. The mobile player still uses the first stop of a local sample
+Experience, with opt-in geolocation, straight-line distance, and optional
+heading. No database queries or authentication flows are connected to the UI.
 
 ## Install dependencies
 
@@ -40,9 +43,62 @@ NEXT_PUBLIC_SUPABASE_URL=your_project_url
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
 ```
 
-Do not commit `.env.local`. The publishable key is intended for client use;
-database authorization will later be enforced with Row Level Security. No
-Supabase database or authentication functionality is implemented yet.
+Do not commit `.env.local`. The publishable key is intended for client use.
+Row Level Security (RLS) is mandatory and is enabled by the schema migration:
+public readers see only published Experiences and their Stops; authenticated
+creators can additionally read and manage their own content. The schema has
+not yet been connected to the application UI; authentication is not implemented.
+
+### Database migrations
+
+Version-controlled SQL in [`supabase/migrations`](supabase/migrations) is the
+schema source of truth. The base migration creates `experiences` and
+`experience_stops`, constraints, timestamps, indexes, grants, and RLS policies.
+It contains no sample records. Creating the file does not apply it to Supabase.
+
+From the repository root, use the Supabase CLI via `npx` (Node.js 20+; no app
+dependency is required). Run `init` only once, if `supabase/config.toml` is absent:
+
+```bash
+npx supabase init
+npx supabase login
+npx supabase link --project-ref YOUR_PROJECT_REF
+npx supabase migration list
+npx supabase db push --dry-run
+```
+
+Find the project reference in your Supabase dashboard. Confirm the linked
+project and review the pending migration before applying it. Enter any database
+password only at the CLI prompt; never put it in source code or command arguments.
+The initial migration expects these tables not to exist. If the database already
+has them or migration history differs, reconcile that state before proceeding;
+do not reset the remote database or overwrite existing tables.
+
+Once the pending list is correct:
+
+```bash
+npx supabase db push
+npx supabase migration list
+```
+
+The push applies pending SQL to the linked project and records migration history.
+Keep subsequent schema changes in new migrations. No proxy, auth UI, database
+query, or deployment automation is introduced by this setup. See the
+[Supabase migration workflow](https://supabase.com/docs/guides/local-development/cli-workflows).
+
+### Domain mapping notes
+
+Domain types remain independent of database rows. Database UUIDs replace the
+sample's readable IDs; `creator_id` and timestamps are database fields not yet
+represented in the domain. A future mapper will translate `experience_id` to
+`experienceId` and `trigger_radius_meters` to `triggerRadiusMeters`. Domain and
+database Stops both use zero-based `position`; the UI may display
+`position + 1` when a human-readable stop number is needed. Stops must be
+explicitly fetched in position order and assembled into `Experience.stops`.
+The database defaults to a 40-meter trigger radius; the existing sample retains
+its explicit 30-meter value. Neither currently implements arrival detection.
+Unique positions need not be contiguous; future reorder operations must avoid
+temporary position collisions. No mapping layer or generated types exist yet.
 
 ## Deployment
 
