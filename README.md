@@ -29,6 +29,21 @@ npm run dev
 
 Then open [http://localhost:3000](http://localhost:3000).
 
+## Supabase foundation
+
+Supabase is the planned platform for persistence and authentication. Add the
+Project URL and publishable key from the Supabase project **Connect** dialog to
+`.env.local`:
+
+```dotenv
+NEXT_PUBLIC_SUPABASE_URL=your_project_url
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
+```
+
+Do not commit `.env.local`. The publishable key is intended for client use;
+database authorization will later be enforced with Row Level Security. No
+Supabase database or authentication functionality is implemented yet.
+
 ## Deployment
 
 The production application is live on Vercel through its GitHub integration.
