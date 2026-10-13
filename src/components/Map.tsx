@@ -7,7 +7,7 @@ import {
   type GeolocationStatus,
   type UserPosition,
 } from "@/hooks/useGeolocation";
-import { TEST_DESTINATION } from "@/data/destination";
+import { SAMPLE_EXPERIENCE } from "@/data/sampleExperience";
 import {
   useDeviceHeading,
   type HeadingStatus,
@@ -18,6 +18,7 @@ import { getCompassDirection } from "@/lib/heading";
 type MapboxGl = (typeof import("mapbox-gl"))["default"];
 
 const STILLWATER_CENTER: [number, number] = [-92.806, 45.056];
+const ACTIVE_STOP = SAMPLE_EXPERIENCE.stops[0];
 
 const STATUS_MESSAGES: Record<Exclude<GeolocationStatus, "error">, string> = {
   "not-requested": "Location off",
@@ -181,13 +182,13 @@ export function Map() {
 
       const destinationMarker = new mapboxgl.Marker({ color: "#dc2626" })
         .setLngLat([
-          TEST_DESTINATION.longitude,
-          TEST_DESTINATION.latitude,
+          ACTIVE_STOP.longitude,
+          ACTIVE_STOP.latitude,
         ])
         .addTo(map);
       destinationMarker
         .getElement()
-        .setAttribute("aria-label", TEST_DESTINATION.name);
+        .setAttribute("aria-label", ACTIVE_STOP.title);
       destinationMarkerRef.current = destinationMarker;
 
       if (latestPositionRef.current) {
@@ -274,7 +275,7 @@ export function Map() {
       ? "Location temporarily unavailable"
       : STATUS_MESSAGES[status];
   const distance = position
-    ? getDistanceInMeters(position, TEST_DESTINATION)
+    ? getDistanceInMeters(position, ACTIVE_STOP)
     : null;
   const distanceLabel =
     distance === null ? "Distance unavailable" : `${formatDistance(distance)} away${status === "error" ? " (last known)" : ""}`;
@@ -307,7 +308,7 @@ export function Map() {
 
   function showDestination() {
     mapRef.current?.easeTo({
-      center: [TEST_DESTINATION.longitude, TEST_DESTINATION.latitude],
+      center: [ACTIVE_STOP.longitude, ACTIVE_STOP.latitude],
       zoom: 16,
       duration: 1_200,
     });
@@ -339,10 +340,16 @@ export function Map() {
       <div className="-mt-px overflow-hidden rounded-b-2xl border border-stone-200 bg-white">
         <div className="p-4 sm:p-5">
           <p className="text-xs font-medium tracking-wide text-stone-500 uppercase">
+            Experience
+          </p>
+          <p className="mt-1 text-sm font-semibold text-stone-800">
+            {SAMPLE_EXPERIENCE.title}
+          </p>
+          <p className="mt-3 text-xs font-medium tracking-wide text-stone-500 uppercase">
             Destination
           </p>
           <h2 className="mt-1 text-xl font-semibold tracking-tight text-stone-950">
-            {TEST_DESTINATION.name}
+            {ACTIVE_STOP.title}
           </h2>
           <p
             className="mt-1 text-2xl font-semibold tracking-tight text-emerald-800"
