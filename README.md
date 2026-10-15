@@ -4,10 +4,11 @@ Guided Experiences is a future platform for creators to publish location-based e
 
 ## Current milestone
 
-Milestone 0 is complete. Milestone 1 adds the Experience domain and database
-foundation. The mobile player still uses the first stop of a local sample
-Experience, with opt-in geolocation, straight-line distance, and optional
-heading. No database queries or authentication flows are connected to the UI.
+Milestone 0 is complete. Milestone 1 adds the Experience domain, database
+foundation, and minimal creator authentication. The mobile player still uses
+the first stop of a local sample Experience, with opt-in geolocation,
+straight-line distance, and optional heading. It remains publicly accessible,
+and no Experience database queries or creator editing tools are connected yet.
 
 ## Install dependencies
 
@@ -44,17 +45,45 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
 ```
 
 Do not commit `.env.local`. The publishable key is intended for client use.
-Row Level Security (RLS) is mandatory and is enabled by the schema migration:
+Row Level Security (RLS) is mandatory and is enabled by the applied schema
+migration:
 public readers see only published Experiences and their Stops; authenticated
 creators can additionally read and manage their own content. The schema has
-not yet been connected to the application UI; authentication is not implemented.
+not yet been connected to the application UI.
+
+### Creator authentication
+
+Minimal email/password authentication is available at `/auth/sign-up` and
+`/auth/sign-in`. Supabase stores the session in cookies, the Next.js proxy
+refreshes it for auth and creator routes, and `/creator` verifies the signed-in
+identity server-side. The creator page is identity-only; it does not query or
+modify Experiences yet.
+
+In the `ventour` Supabase dashboard:
+
+1. Open **Authentication → Providers → Email** and keep email/password enabled.
+2. Decide whether **Confirm email** is required. Hosted projects normally
+   require confirmation; the app displays confirmation instructions and also
+   supports projects where confirmation is disabled.
+3. Open **Authentication → URL Configuration**. Set **Site URL** to the exact
+   production Vercel URL, for example `https://YOUR-PRODUCTION-DOMAIN`.
+4. Add `http://localhost:3000/auth/confirm` and
+   `https://YOUR-PRODUCTION-DOMAIN/auth/confirm` to **Redirect URLs**. Add a
+   Vercel preview-domain pattern only if preview deployments will test auth.
+
+The sign-up action supplies `/auth/confirm` as its email redirect. Keep the
+default confirmation link behavior; no custom email template is required by
+this implementation. Supabase must allow each callback URL before it will use
+it. See [Supabase redirect URL guidance](https://supabase.com/docs/guides/auth/redirect-urls).
 
 ### Database migrations
 
 Version-controlled SQL in [`supabase/migrations`](supabase/migrations) is the
 schema source of truth. The base migration creates `experiences` and
 `experience_stops`, constraints, timestamps, indexes, grants, and RLS policies.
-It contains no sample records. Creating the file does not apply it to Supabase.
+It contains no sample records. The base migration has been applied to the
+linked `ventour` project; creating future migration files will not apply them
+automatically.
 
 From the repository root, use the Supabase CLI via `npx` (Node.js 20+; no app
 dependency is required). Run `init` only once, if `supabase/config.toml` is absent:
@@ -70,9 +99,9 @@ npx supabase db push --dry-run
 Find the project reference in your Supabase dashboard. Confirm the linked
 project and review the pending migration before applying it. Enter any database
 password only at the CLI prompt; never put it in source code or command arguments.
-The initial migration expects these tables not to exist. If the database already
-has them or migration history differs, reconcile that state before proceeding;
-do not reset the remote database or overwrite existing tables.
+Future migrations should be reviewed against the remote migration history
+before being applied; do not reset the remote database or overwrite existing
+tables.
 
 Once the pending list is correct:
 
@@ -82,8 +111,8 @@ npx supabase migration list
 ```
 
 The push applies pending SQL to the linked project and records migration history.
-Keep subsequent schema changes in new migrations. No proxy, auth UI, database
-query, or deployment automation is introduced by this setup. See the
+Keep subsequent schema changes in new migrations. No Experience query, creator
+CRUD, or deployment automation is introduced by the auth setup. See the
 [Supabase migration workflow](https://supabase.com/docs/guides/local-development/cli-workflows).
 
 ### Domain mapping notes
@@ -117,8 +146,11 @@ For future deployments:
 4. Add `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` to the project's environment
    variables. Select Production; add it to Preview too if you plan to use
    preview deployments for field testing.
-5. Deploy, then open the resulting HTTPS URL.
-6. Confirm the map loads before testing location or compass permissions.
+5. Add `NEXT_PUBLIC_SUPABASE_URL` and
+   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to the same Vercel environments.
+6. Redeploy after adding or changing public environment variables.
+7. Open the resulting HTTPS URL and confirm the map loads before testing
+   location, compass, or creator authentication.
 
 Vercel detects `package-lock.json` and uses `npm install`. No custom output
 directory or install setting is needed.
@@ -186,10 +218,9 @@ application is not required at this stage. The remaining mobile-browser
 limitations should inform later product design rather than block progression to
 a subsequent milestone.
 
-Before walking with the prototype, update the nearby safe test destination in
-[`src/data/destination.ts`](src/data/destination.ts). Edit the `name`,
-`latitude`, and `longitude` fields in `TEST_DESTINATION`, then deploy the
-change.
+Before walking with the prototype, update the first stop in
+[`src/data/sampleExperience.ts`](src/data/sampleExperience.ts). Edit its
+`title`, `latitude`, and `longitude`, then deploy the change.
 
 ### Initial load
 
