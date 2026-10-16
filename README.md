@@ -5,10 +5,10 @@ Guided Experiences is a future platform for creators to publish location-based e
 ## Current milestone
 
 Milestone 0 is complete. Milestone 1 adds the Experience domain, database
-foundation, and minimal creator authentication. The mobile player still uses
-the first stop of a local sample Experience, with opt-in geolocation,
-straight-line distance, and optional heading. It remains publicly accessible,
-and no Experience database queries or creator editing tools are connected yet.
+foundation, creator authentication, and authenticated Experience-level CRUD.
+The mobile player still uses the first stop of a local sample Experience, with
+opt-in geolocation, straight-line distance, and optional heading. It remains
+publicly accessible and is not connected to persisted Experiences yet.
 
 ## Install dependencies
 
@@ -49,15 +49,24 @@ Row Level Security (RLS) is mandatory and is enabled by the applied schema
 migration:
 public readers see only published Experiences and their Stops; authenticated
 creators can additionally read and manage their own content. The schema has
-not yet been connected to the application UI.
+been connected only to the authenticated creator Experience workflow. Stops
+and the public player are not connected to Supabase yet.
 
 ### Creator authentication
 
 Minimal email/password authentication is available at `/auth/sign-up` and
 `/auth/sign-in`. Supabase stores the session in cookies, the Next.js proxy
 refreshes it for auth and creator routes, and `/creator` verifies the signed-in
-identity server-side. The creator page is identity-only; it does not query or
-modify Experiences yet.
+identity server-side.
+
+### Creator Experience workflow
+
+Authenticated creators can use `/creator` to list their own Experiences, create
+a draft at `/creator/experiences/new`, and edit or delete it at
+`/creator/experiences/[id]`. Reads run on the server and mutations use Server
+Actions through the authenticated Supabase client, so the existing RLS policies
+remain the authorization boundary. New Experiences always start as drafts.
+Experience Stops and publishing are not part of this workflow yet.
 
 In the `ventour` Supabase dashboard:
 
@@ -111,8 +120,8 @@ npx supabase migration list
 ```
 
 The push applies pending SQL to the linked project and records migration history.
-Keep subsequent schema changes in new migrations. No Experience query, creator
-CRUD, or deployment automation is introduced by the auth setup. See the
+Keep subsequent schema changes in new migrations. The creator workflow uses
+the existing schema and RLS policies without an additional migration. See the
 [Supabase migration workflow](https://supabase.com/docs/guides/local-development/cli-workflows).
 
 ### Domain mapping notes
