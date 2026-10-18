@@ -136,6 +136,7 @@ export async function updateExperience(
 
   revalidatePath("/creator");
   revalidatePath(`/creator/experiences/${experienceId}`);
+  revalidatePath(`/experiences/${experienceId}`);
 
   return { status: "success", message: "Experience saved." };
 }
@@ -185,5 +186,6 @@ export async function deleteExperience(
   }
 
   revalidatePath("/creator");
+  revalidatePath(`/experiences/${experienceId}`);
   redirect("/creator");
 }

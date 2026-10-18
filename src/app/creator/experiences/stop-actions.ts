@@ -43,10 +43,13 @@ export async function mutateStop(
     const { error } = await creator.supabase.rpc("edit_experience_stop", {
       p_experience_id: experienceId, p_stop_id: stopId, p_operation: operation, ...fields,
     });
-    if (error) return { success: false, message: "Unable to save this Stop change. Reload and try again." };
+    if (error) return { success: false, message: error.message === "published_requires_stops"
+      ? "Unpublish the Experience before deleting its last Stop."
+      : "Unable to save this Stop change. Reload and try again." };
   } catch {
     return { success: false, message: "Unable to save this Stop change. Please try again." };
   }
   revalidatePath(`/creator/experiences/${experienceId}`);
+  revalidatePath(`/experiences/${experienceId}`);
   return { success: true, message: "Stop change saved." };
 }

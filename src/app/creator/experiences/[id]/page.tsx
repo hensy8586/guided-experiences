@@ -5,6 +5,7 @@ import { DeleteExperienceButton } from "@/app/creator/experiences/DeleteExperien
 import { ExperienceForm } from "@/app/creator/experiences/ExperienceForm";
 import { updateExperience } from "@/app/creator/experiences/actions";
 import { StopEditor } from "@/app/creator/experiences/StopEditor";
+import { PublicationControls } from "@/app/creator/experiences/PublicationControls";
 import { listCreatorStops } from "@/lib/creator-stops";
 import {
   getAuthenticatedCreator,
@@ -112,6 +113,8 @@ export default async function EditExperiencePage({
 
         {stops === null ? <p role="alert" className="mt-6 text-red-800">Unable to load Stops. Reload to try again.</p>
           : <StopEditor experienceId={experience.id} stops={stops} />}
+
+        <PublicationControls id={experience.id} published={experience.status === "published"} />
 
         <div className="mt-8 border-t border-stone-200 pt-6">
           <h2 className="font-semibold text-stone-950">Delete Experience</h2>

@@ -5,10 +5,10 @@ Guided Experiences is a future platform for creators to publish location-based e
 ## Current milestone
 
 Milestone 0 is complete. Milestone 1 adds the Experience domain, database
-foundation, creator authentication, and authenticated Experience and Stop editing.
-The mobile player still uses the first stop of a local sample Experience, with
-opt-in geolocation, straight-line distance, and optional heading. It remains
-publicly accessible and is not connected to persisted Experiences yet.
+foundation, creator authentication, Experience/Stop editing, and publishing.
+The homepage demonstrates a local sample; `/experiences/[id]` loads a published
+Experience anonymously. Both use the same mobile player with manual Previous/
+Next Stop navigation, opt-in geolocation, straight-line distance, and optional heading.
 
 ## Install dependencies
 
@@ -50,7 +50,7 @@ migration:
 public readers see only published Experiences and their Stops; authenticated
 creators can additionally read and manage their own content. The schema has
 been connected to the authenticated creator Experience and Stop workflow.
-The public player is not connected to Supabase yet.
+Public Experience pages read only published content through anonymous RLS access.
 
 ### Creator authentication
 
@@ -69,14 +69,14 @@ remain the authorization boundary. New Experiences always start as drafts.
 The Experience edit page includes ordered Stops with inline add/edit forms,
 Mapbox coordinate selection, manual coordinates, and a default 40-meter trigger
 radius. Move up/down and delete keep positions contiguous and zero-based;
-displayed numbers start at 1. Publishing is not implemented.
+displayed numbers start at 1.
 
 Stop mutations require `20261015000000_stop_editor.sql`. This migration is
-checked in but has not been applied remotely by the implementation task.
-Inspect it and apply it to the linked project before testing Stop changes:
+applied to `ventour` and field-tested as part of Step 6. The new publishing
+migration is not applied automatically. Inspect it and apply it before using publishing:
 
 ```bash
-git diff --no-index /dev/null supabase/migrations/20261015000000_stop_editor.sql
+git diff --no-index /dev/null supabase/migrations/20261017000000_publish_experiences.sql
 npx supabase migration list
 npx supabase db push --dry-run
 npx supabase db push
@@ -88,8 +88,57 @@ Confirm the linked project is `ventour` and review all pending migrations before
 the push. The `edit_experience_stop` RPC runs as the caller (`SECURITY INVOKER`),
 checks parent ownership, locks the parent and existing Stops, and rejects gapped
 ordering. All editor writes use this transaction. Existing direct table grants
-and RLS remain unchanged: out-of-band SQL or direct owner writes must preserve
-ordering themselves; the RPC does not silently repair malformed data.
+and RLS remain unchanged. The publishing migration adds parent-write serialization
+and deferred database checks, including for direct owner writes. Published
+Experiences must remain nonempty with contiguous Stop positions at commit.
+Draft direct writes can still create gaps, which the editor and publishing reject;
+use the editor RPC for ordering. No malformed data is silently repaired.
+
+### Publishing and public player
+
+On the Experience editor, save metadata and Stops, then choose **Publish**.
+At least one valid persisted Stop is required. The database checks final ordering
+atomically with publication using `set_experience_publication` and constraint
+triggers; all functions run as `SECURITY INVOKER` under existing RLS. Stop writes
+and publishing serialize on the parent row. Temporary reorder positions are
+allowed within the transaction, but invalid final published content cannot commit.
+Deleting the last published Stop is blocked: unpublish first. Deleting an entire
+Experience still cascades normally. Saved edits appear on subsequent public loads.
+
+Use **Open public Experience** and copy its address to share `/experiences/<uuid>`.
+No consumer login is needed. **Unpublish** restores draft visibility without
+deleting data. Even a signed-in owner cannot open a draft via the public route.
+Previous/Next changes the active destination, text, distance, and camera-button
+target; it does not move the camera automatically or restart GPS/compass listeners.
+Use **Show destination** to move the map to the selected Stop. Progress is not saved.
+
+Public reads use one parent/ordered-Stops query with an explicit published filter,
+an anonymous publishable-key client, and `fetch` with `cache: "no-store"`.
+`connection()` keeps publication-sensitive rendering request-scoped; no data or
+published content is placed in the persistent Data/Full Route Cache. A static
+loading shell may still be prerendered. Public responses carry private/no-store
+browser and CDN headers. Mutations also revalidate the public path. The creator
+share link uses a normal navigation rather than prefetched Router Cache content.
+Already-open pages, browser back/forward snapshots, or previously downloaded
+content cannot be recalled; reload/new anonymous requests check publication again.
+
+Apply migrations in order: base schema, Stop editor, then publishing. The new
+migration fails safely if existing published data is empty or malformed; correct
+that data or return it to draft before retrying. No remote push is performed by
+the implementation task.
+
+End-to-end check after applying the migration:
+
+1. Sign in, create an Experience, and confirm publishing without Stops is blocked.
+2. Add three Stops, reorder them, save metadata, and publish.
+3. Open the public link in incognito; check Stop order and Previous/Next boundaries.
+4. Enable location/compass on a phone; change Stops and check marker/distance,
+   manual camera controls, and uninterrupted sensor permissions.
+5. Try deleting the last published Stop; confirm it is blocked.
+6. Unpublish and freshly load the URL in incognito and as the owner: both must
+   show Not Found. Republish to restore access.
+7. With a second creator account, confirm the first account's content cannot be
+   changed. Recheck existing Stop edit/reorder/delete and Experience deletion.
 
 In the `ventour` Supabase dashboard:
 
@@ -151,7 +200,7 @@ migration without changing the initial schema or RLS policies. See the
 
 Domain types remain independent of database rows. Database UUIDs replace the
 sample's readable IDs; `creator_id` and timestamps are database fields not yet
-represented in the domain. A future mapper will translate `experience_id` to
+represented in the domain. The public loader translates `experience_id` to
 `experienceId` and `trigger_radius_meters` to `triggerRadiusMeters`. Domain and
 database Stops both use zero-based `position`; the UI may display
 `position + 1` when a human-readable stop number is needed. Stops must be
@@ -258,7 +307,7 @@ Before walking with the prototype, update the first stop in
 ### Initial load
 
 - Open the deployed HTTPS Vercel URL.
-- Confirm the Mapbox map and `Test Destination` load.
+- Confirm the Mapbox map and first Stop load.
 - Confirm the browser does not request location automatically.
 
 ### Location

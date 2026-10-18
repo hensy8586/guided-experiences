@@ -7,7 +7,7 @@ import {
   type GeolocationStatus,
   type UserPosition,
 } from "@/hooks/useGeolocation";
-import { SAMPLE_EXPERIENCE } from "@/data/sampleExperience";
+import type { Experience } from "@/domain/experience";
 import {
   useDeviceHeading,
   type HeadingStatus,
@@ -16,9 +16,6 @@ import { getDistanceInMeters } from "@/lib/geo";
 import { getCompassDirection } from "@/lib/heading";
 
 type MapboxGl = (typeof import("mapbox-gl"))["default"];
-
-const STILLWATER_CENTER: [number, number] = [-92.806, 45.056];
-const ACTIVE_STOP = SAMPLE_EXPERIENCE.stops[0];
 
 const STATUS_MESSAGES: Record<Exclude<GeolocationStatus, "error">, string> = {
   "not-requested": "Location off",
@@ -117,7 +114,15 @@ function formatDistance(distanceInMeters: number) {
   return `${distanceInKilometers} km`;
 }
 
-export function Map() {
+export function Map({ experience }: { experience: Experience }) {
+  if (experience.stops.length === 0) return <p>No Stops available.</p>;
+  return <ExperienceMap key={experience.id} experience={experience} />;
+}
+
+function ExperienceMap({ experience }: { experience: Experience }) {
+  const [stopIndex, setStopIndex] = useState(0);
+  const activeStop = experience.stops[Math.min(stopIndex, experience.stops.length - 1)];
+  const activeStopRef = useRef(activeStop);
   const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "error">("loading");
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
@@ -134,6 +139,12 @@ export function Map() {
     heading,
     requestHeading,
   } = useDeviceHeading();
+
+  useEffect(() => {
+    activeStopRef.current = activeStop;
+    destinationMarkerRef.current?.setLngLat([activeStop.longitude, activeStop.latitude]);
+    destinationMarkerRef.current?.getElement().setAttribute("aria-label", activeStop.title);
+  }, [activeStop]);
 
   useEffect(() => {
     if (!accessToken || !containerRef.current || mapRef.current) {
@@ -172,7 +183,7 @@ export function Map() {
       map = new mapboxgl.Map({
         accessToken,
         container: containerRef.current,
-        center: STILLWATER_CENTER,
+        center: [activeStopRef.current.longitude, activeStopRef.current.latitude],
         zoom: 14,
         style: "mapbox://styles/mapbox/standard",
       });
@@ -182,13 +193,13 @@ export function Map() {
 
       const destinationMarker = new mapboxgl.Marker({ color: "#dc2626" })
         .setLngLat([
-          ACTIVE_STOP.longitude,
-          ACTIVE_STOP.latitude,
+          activeStopRef.current.longitude,
+          activeStopRef.current.latitude,
         ])
         .addTo(map);
       destinationMarker
         .getElement()
-        .setAttribute("aria-label", ACTIVE_STOP.title);
+        .setAttribute("aria-label", activeStopRef.current.title);
       destinationMarkerRef.current = destinationMarker;
 
       if (latestPositionRef.current) {
@@ -275,7 +286,7 @@ export function Map() {
       ? "Location temporarily unavailable"
       : STATUS_MESSAGES[status];
   const distance = position
-    ? getDistanceInMeters(position, ACTIVE_STOP)
+    ? getDistanceInMeters(position, activeStop)
     : null;
   const distanceLabel =
     distance === null ? "Distance unavailable" : `${formatDistance(distance)} away${status === "error" ? " (last known)" : ""}`;
@@ -308,7 +319,7 @@ export function Map() {
 
   function showDestination() {
     mapRef.current?.easeTo({
-      center: [ACTIVE_STOP.longitude, ACTIVE_STOP.latitude],
+      center: [activeStop.longitude, activeStop.latitude],
       zoom: 16,
       duration: 1_200,
     });
@@ -320,7 +331,7 @@ export function Map() {
         <div
           ref={containerRef}
           className="h-[58svh] min-h-88 max-h-160 w-full overflow-hidden rounded-t-2xl sm:h-[62vh] sm:max-h-176"
-          aria-label="Map of downtown Stillwater, Minnesota"
+          aria-label="Experience map with current destination"
         />
       ) : (
         <div
@@ -342,15 +353,22 @@ export function Map() {
           <p className="text-xs font-medium tracking-wide text-stone-500 uppercase">
             Experience
           </p>
-          <p className="mt-1 text-sm font-semibold text-stone-800">
-            {SAMPLE_EXPERIENCE.title}
+          <p className="mt-1 text-sm font-semibold text-stone-800 break-words">
+            {experience.title}
           </p>
-          <p className="mt-3 text-xs font-medium tracking-wide text-stone-500 uppercase">
-            Destination
+          {experience.description && <p className="mt-2 text-sm text-stone-600 whitespace-pre-wrap break-words">{experience.description}</p>}
+          <p aria-live="polite" className="mt-3 text-xs font-medium tracking-wide text-stone-500 uppercase">
+            Stop {activeStop.position + 1} of {experience.stops.length}
           </p>
-          <h2 className="mt-1 text-xl font-semibold tracking-tight text-stone-950">
-            {ACTIVE_STOP.title}
+          <h2 className="mt-1 text-xl font-semibold tracking-tight text-stone-950 break-words">
+            {activeStop.title}
           </h2>
+          {activeStop.description && <p className="mt-2 text-sm text-stone-800 whitespace-pre-wrap break-words">{activeStop.description}</p>}
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <button type="button" disabled={stopIndex === 0} onClick={() => setStopIndex(index => Math.max(0, index - 1))} className="min-h-11 rounded-lg border border-stone-300 px-3 py-2 font-semibold focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:opacity-40">Previous Stop</button>
+            <button type="button" disabled={stopIndex >= experience.stops.length - 1} onClick={() => setStopIndex(index => Math.min(experience.stops.length - 1, index + 1))} className="min-h-11 rounded-lg border border-stone-300 px-3 py-2 font-semibold focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:opacity-40">Next Stop</button>
+          </div>
+          <p className="mt-3 text-xs text-stone-500">Straight-line distance, not a walking route</p>
           <p
             className="mt-1 text-2xl font-semibold tracking-tight text-emerald-800"
             aria-live="polite"

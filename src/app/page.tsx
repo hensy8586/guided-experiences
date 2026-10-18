@@ -1,4 +1,5 @@
 import { Map } from "@/components/Map";
+import { SAMPLE_EXPERIENCE } from "@/data/sampleExperience";
 
 export default function Home() {
   return (
@@ -13,7 +14,7 @@ export default function Home() {
           </p>
         </header>
 
-        <Map />
+        <Map experience={SAMPLE_EXPERIENCE} />
       </div>
     </main>
   );
