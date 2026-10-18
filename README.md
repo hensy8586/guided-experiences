@@ -5,7 +5,7 @@ Guided Experiences is a future platform for creators to publish location-based e
 ## Current milestone
 
 Milestone 0 is complete. Milestone 1 adds the Experience domain, database
-foundation, creator authentication, and authenticated Experience-level CRUD.
+foundation, creator authentication, and authenticated Experience and Stop editing.
 The mobile player still uses the first stop of a local sample Experience, with
 opt-in geolocation, straight-line distance, and optional heading. It remains
 publicly accessible and is not connected to persisted Experiences yet.
@@ -49,8 +49,8 @@ Row Level Security (RLS) is mandatory and is enabled by the applied schema
 migration:
 public readers see only published Experiences and their Stops; authenticated
 creators can additionally read and manage their own content. The schema has
-been connected only to the authenticated creator Experience workflow. Stops
-and the public player are not connected to Supabase yet.
+been connected to the authenticated creator Experience and Stop workflow.
+The public player is not connected to Supabase yet.
 
 ### Creator authentication
 
@@ -66,7 +66,30 @@ a draft at `/creator/experiences/new`, and edit or delete it at
 `/creator/experiences/[id]`. Reads run on the server and mutations use Server
 Actions through the authenticated Supabase client, so the existing RLS policies
 remain the authorization boundary. New Experiences always start as drafts.
-Experience Stops and publishing are not part of this workflow yet.
+The Experience edit page includes ordered Stops with inline add/edit forms,
+Mapbox coordinate selection, manual coordinates, and a default 40-meter trigger
+radius. Move up/down and delete keep positions contiguous and zero-based;
+displayed numbers start at 1. Publishing is not implemented.
+
+Stop mutations require `20261015000000_stop_editor.sql`. This migration is
+checked in but has not been applied remotely by the implementation task.
+Inspect it and apply it to the linked project before testing Stop changes:
+
+```bash
+git diff --no-index /dev/null supabase/migrations/20261015000000_stop_editor.sql
+npx supabase migration list
+npx supabase db push --dry-run
+npx supabase db push
+npx supabase migration list
+```
+
+The diff command exits with status 1 when it displays differences; this is normal.
+Confirm the linked project is `ventour` and review all pending migrations before
+the push. The `edit_experience_stop` RPC runs as the caller (`SECURITY INVOKER`),
+checks parent ownership, locks the parent and existing Stops, and rejects gapped
+ordering. All editor writes use this transaction. Existing direct table grants
+and RLS remain unchanged: out-of-band SQL or direct owner writes must preserve
+ordering themselves; the RPC does not silently repair malformed data.
 
 In the `ventour` Supabase dashboard:
 
@@ -120,8 +143,8 @@ npx supabase migration list
 ```
 
 The push applies pending SQL to the linked project and records migration history.
-Keep subsequent schema changes in new migrations. The creator workflow uses
-the existing schema and RLS policies without an additional migration. See the
+Keep subsequent schema changes in new migrations. Stop editing adds the RPC
+migration without changing the initial schema or RLS policies. See the
 [Supabase migration workflow](https://supabase.com/docs/guides/local-development/cli-workflows).
 
 ### Domain mapping notes
@@ -135,8 +158,9 @@ database Stops both use zero-based `position`; the UI may display
 explicitly fetched in position order and assembled into `Experience.stops`.
 The database defaults to a 40-meter trigger radius; the existing sample retains
 its explicit 30-meter value. Neither currently implements arrival detection.
-Unique positions need not be contiguous; future reorder operations must avoid
-temporary position collisions. No mapping layer or generated types exist yet.
+The creator Stop reader maps `experience_id` and `trigger_radius_meters` into
+the existing camelCase Stop type; unused timestamps are not selected. The editor
+RPC requires and preserves contiguous positions. No generated database types exist yet.
 
 ## Deployment
 

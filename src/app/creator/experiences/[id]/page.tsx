@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { DeleteExperienceButton } from "@/app/creator/experiences/DeleteExperienceButton";
 import { ExperienceForm } from "@/app/creator/experiences/ExperienceForm";
 import { updateExperience } from "@/app/creator/experiences/actions";
+import { StopEditor } from "@/app/creator/experiences/StopEditor";
+import { listCreatorStops } from "@/lib/creator-stops";
 import {
   getAuthenticatedCreator,
   getCreatorExperience,
@@ -66,6 +68,7 @@ export default async function EditExperiencePage({
 
   const { created } = await searchParams;
   const experience = result.experience;
+  const stops = await listCreatorStops(creator, experience.id);
   const updateAction = updateExperience.bind(null, experience.id);
 
   return (
@@ -106,6 +109,9 @@ export default async function EditExperiencePage({
           }}
           submitLabel="Save changes"
         />
+
+        {stops === null ? <p role="alert" className="mt-6 text-red-800">Unable to load Stops. Reload to try again.</p>
+          : <StopEditor experienceId={experience.id} stops={stops} />}
 
         <div className="mt-8 border-t border-stone-200 pt-6">
           <h2 className="font-semibold text-stone-950">Delete Experience</h2>
