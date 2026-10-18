@@ -159,14 +159,15 @@ Audit execution:
 
 - Reproduced the pre-fix immediate-mode defect in temporary PGlite: published,
   zero Stops committed.
-- `tests/milestone-1-database.mjs`: 36 isolated checks across all migrations,
+- `tests/milestone-1-database.mjs`: 37 isolated checks across all migrations,
   covering RLS, owner spoofing, parent reassignment, boundaries, forged IDs,
   append/reorder/compaction, publication, direct-write guards, immediate and
   deferred transactions, anonymous visibility, unpublishing, and cascading delete.
-- `tests/utilities.test.mjs`: two test groups covering Haversine identity,
+- `tests/utilities.test.mjs`: three test groups covering Haversine identity,
   symmetry, nearby distance/date line; compass sectors/normalization and invalid
-  orientation. Node's TS module-detection warning is harmless; no package module
-  mode change is needed solely for the test runner.
+  orientation; and the stable last-published-Stop application error. Node's TS
+  module-detection warning is harmless; no package module mode change is needed
+  solely for the test runner.
 - `npm run lint`, `npm run build` (Webpack), and `git diff --check`: passed.
 - Seven read-only local production HTTP checks passed: sample homepage;
   anonymous creator dashboard/new-route redirects; invalid and nonexistent

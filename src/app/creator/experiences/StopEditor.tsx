@@ -3,9 +3,12 @@
 import { useActionState, useState } from "react";
 import type { ExperienceStop } from "@/domain/experience";
 import { StopLocationMap } from "@/components/StopLocationMap";
-import { mutateStop, type StopActionState } from "./stop-actions";
+import { mutateStop } from "./stop-actions";
+import {
+  INITIAL_STOP_ACTION_STATE,
+  type StopActionState,
+} from "@/lib/stop-action-result";
 
-const initial: StopActionState = { success: false, message: "" };
 const button = "min-h-11 rounded-lg border border-stone-300 px-3 py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:opacity-40";
 const input = "mt-1 block w-full rounded-lg border border-stone-300 p-3 focus-visible:outline-2 focus-visible:outline-emerald-700";
 
@@ -19,9 +22,9 @@ function StopForm({ experienceId, stop, previous, onClose }: {
   const [radius, setRadius] = useState(String(stop?.triggerRadiusMeters ?? 40));
   const [state, action, pending] = useActionState(async (state: StopActionState, form: FormData) => {
     const result = await mutateStop(experienceId, stop?.id ?? null, stop ? "edit" : "add", state, form);
-    if (result.success) onClose();
+    if (result.status === "success") onClose();
     return result;
-  }, initial);
+  }, INITIAL_STOP_ACTION_STATE);
   const lat = Number(latitude), lng = Number(longitude);
   const coordinates = latitude.trim() && longitude.trim() && Number.isFinite(lat) && Number.isFinite(lng) &&
     lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 ? { latitude: lat, longitude: lng } : null;
@@ -39,7 +42,10 @@ function StopForm({ experienceId, stop, previous, onClose }: {
       <div className="flex gap-3"><button className={`${button} bg-emerald-700 text-white`} type="submit">{pending ? "Saving…" : "Save stop"}</button>
         <button className={button} type="button" onClick={onClose}>Cancel</button></div>
     </fieldset>
-    <p role="status" className="text-sm text-red-800">{state.message}</p>
+    {state.message ? <p role={state.status === "error" ? "alert" : "status"} aria-live="polite"
+      className={`text-sm ${state.status === "error" ? "text-red-800" : "text-emerald-800"}`}>
+      {state.message}
+    </p> : null}
   </form>;
 }
 
@@ -47,9 +53,11 @@ export function StopEditor({ experienceId, stops }: { experienceId: string; stop
   const [editing, setEditing] = useState<string | null>(null);
   const [state, action, pending] = useActionState(async (state: StopActionState, form: FormData) => {
     const operation = form.get("operation");
-    if (operation !== "up" && operation !== "down" && operation !== "delete") return initial;
+    if (operation !== "up" && operation !== "down" && operation !== "delete") {
+      return INITIAL_STOP_ACTION_STATE;
+    }
     return mutateStop(experienceId, String(form.get("stopId")), operation, state, form);
-  }, initial);
+  }, INITIAL_STOP_ACTION_STATE);
   return <section className="mt-8 border-t border-stone-200 pt-6" aria-labelledby="stops-heading">
     <div className="flex items-center justify-between gap-3"><h2 id="stops-heading" className="text-xl font-semibold">Stops</h2>
       <button type="button" className={button} disabled={pending || editing !== null} onClick={() => setEditing("new")}>Add stop</button></div>
@@ -70,7 +78,13 @@ export function StopEditor({ experienceId, stops }: { experienceId: string; stop
         </form>
       </li>)}
     </ol>
-    <p role="status" className="mt-2 text-sm">{pending ? "Saving…" : state.message}</p>
+    <p
+      role={state.status === "error" ? "alert" : "status"}
+      aria-live="polite"
+      className={`mt-2 text-sm ${state.status === "error" ? "text-red-800" : "text-stone-700"}`}
+    >
+      {pending ? "Saving…" : state.message}
+    </p>
     {editing !== null ? <StopForm key={editing} experienceId={experienceId}
       stop={stops.find(stop => stop.id === editing)} previous={stops.at(-1)} onClose={() => setEditing(null)} /> : null}
   </section>;

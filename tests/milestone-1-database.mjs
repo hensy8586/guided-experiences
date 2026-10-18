@@ -13,6 +13,7 @@ const owner = "11111111-1111-4111-8111-111111111111";
 const other = "22222222-2222-4222-8222-222222222222";
 const experience = "33333333-3333-4333-8333-333333333333";
 const otherExperience = "44444444-4444-4444-8444-444444444444";
+const draftExperience = "55555555-5555-4555-8555-555555555555";
 const sql = (text) => db.exec(text);
 const rows = async (text) => (await db.query(text)).rows;
 async function denied(text, pattern) {
@@ -50,6 +51,11 @@ try {
   await login(owner);
   await denied(`insert into public.experiences(creator_id,title) values('${other}','Spoof')`, /row-level security/);
   await sql(`insert into public.experiences(id,creator_id,title) values('${experience}',auth.uid(),'Test')`);
+  await sql(`insert into public.experiences(id,creator_id,title) values('${draftExperience}',auth.uid(),'Draft deletion')`);
+  await sql(`select public.edit_experience_stop('${draftExperience}','add',null,'Only Stop','',45,-92,40)`);
+  const draftStop = (await rows(`select id from public.experience_stops where experience_id='${draftExperience}'`))[0];
+  await sql(`select public.edit_experience_stop('${draftExperience}','delete','${draftStop.id}')`);
+  check((await rows(`select id from public.experience_stops where experience_id='${draftExperience}'`)).length, 0);
   await denied(`update public.experiences set creator_id='${other}' where id='${experience}'`, /row-level security/);
   await denied(publish, /published_requires_stops/);
   await denied(`update public.experiences set status='published' where id='${experience}'`, /published_requires_stops/);
