@@ -10,6 +10,11 @@ The homepage demonstrates a local sample; `/experiences/[id]` loads a published
 Experience anonymously. Both use the same mobile player with manual Previous/
 Next Stop navigation, opt-in geolocation, straight-line distance, and optional heading.
 
+Step 7 is deployed and manually tested successfully. The Step 8 audit found and
+fixed an immediate-constraint-mode publication edge case; formal closure awaits
+application and verification of the new audit migration. See
+[`docs/milestone-1.md`](docs/milestone-1.md) for the audit, evidence, and closure checklist.
+
 ## Install dependencies
 
 ```bash
@@ -35,7 +40,7 @@ Then open [http://localhost:3000](http://localhost:3000).
 
 ## Supabase foundation
 
-Supabase is the planned platform for persistence and authentication. Add the
+Supabase provides persistence and authentication. Add the
 Project URL and publishable key from the Supabase project **Connect** dialog to
 `.env.local`:
 
@@ -72,11 +77,12 @@ radius. Move up/down and delete keep positions contiguous and zero-based;
 displayed numbers start at 1.
 
 Stop mutations require `20261015000000_stop_editor.sql`. This migration is
-applied to `ventour` and field-tested as part of Step 6. The new publishing
-migration is not applied automatically. Inspect it and apply it before using publishing:
+applied to `ventour` and field-tested as part of Step 6. The base, Stop editor,
+and publishing migrations are all applied, per the project's verified state.
+The Step 8 audit migration is pending. Inspect it before applying:
 
 ```bash
-git diff --no-index /dev/null supabase/migrations/20261017000000_publish_experiences.sql
+git diff --no-index /dev/null supabase/migrations/20261018000000_publication_trigger_timing.sql
 npx supabase migration list
 npx supabase db push --dry-run
 npx supabase db push
@@ -93,6 +99,9 @@ and deferred database checks, including for direct owner writes. Published
 Experiences must remain nonempty with contiguous Stop positions at commit.
 Draft direct writes can still create gaps, which the editor and publishing reject;
 use the editor RPC for ordering. No malformed data is silently repaired.
+Direct Stop writes can also deadlock with parent-first editor operations; one
+transaction aborts safely and must be retried. They are not the supported editor
+write path. See the audit's explicit decision to retain invoker-compatible grants.
 
 ### Publishing and public player
 
@@ -122,10 +131,11 @@ share link uses a normal navigation rather than prefetched Router Cache content.
 Already-open pages, browser back/forward snapshots, or previously downloaded
 content cannot be recalled; reload/new anonymous requests check publication again.
 
-Apply migrations in order: base schema, Stop editor, then publishing. The new
-migration fails safely if existing published data is empty or malformed; correct
-that data or return it to draft before retrying. No remote push is performed by
-the implementation task.
+Apply migrations in timestamp order: base schema, Stop editor, publishing, then
+the audit trigger-timing fix. The audit fix moves the parent update to AFTER the
+Stop mutation, so immediate constraint checks see the resulting Stop set. Default
+deferred mode still supports atomic reorder. No remote push is performed by the
+implementation task.
 
 End-to-end check after applying the migration:
 

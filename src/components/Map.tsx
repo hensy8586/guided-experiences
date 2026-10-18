@@ -124,6 +124,7 @@ function ExperienceMap({ experience }: { experience: Experience }) {
   const activeStop = experience.stops[Math.min(stopIndex, experience.stops.length - 1)];
   const activeStopRef = useRef(activeStop);
   const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [mapLoadError, setMapLoadError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
   const mapboxglRef = useRef<MapboxGl | null>(null);
@@ -154,6 +155,14 @@ function ExperienceMap({ experience }: { experience: Experience }) {
     let cancelled = false;
     let map: MapboxMap | null = null;
 
+    function handleMapError() {
+      if (!cancelled) setMapLoadError(true);
+    }
+
+    function handleMapLoad() {
+      if (!cancelled) setMapLoadError(false);
+    }
+
     function updateHeadingForBearing() {
       if (map && markerRef.current) {
         updateUserMarkerHeading(markerRef.current, latestHeadingRef.current, map.getBearing());
@@ -166,6 +175,8 @@ function ExperienceMap({ experience }: { experience: Experience }) {
       destinationMarkerRef.current?.remove();
       destinationMarkerRef.current = null;
       map?.off("rotate", updateHeadingForBearing);
+      map?.off("error", handleMapError);
+      map?.off("load", handleMapLoad);
       map?.remove();
       if (mapRef.current === map) mapRef.current = null;
       map = null;
@@ -190,6 +201,8 @@ function ExperienceMap({ experience }: { experience: Experience }) {
       mapRef.current = map;
       mapboxglRef.current = mapboxgl;
       map.on("rotate", updateHeadingForBearing);
+      map.on("error", handleMapError);
+      map.on("load", handleMapLoad);
 
       const destinationMarker = new mapboxgl.Marker({ color: "#dc2626" })
         .setLngLat([
@@ -342,9 +355,9 @@ function ExperienceMap({ experience }: { experience: Experience }) {
           map.
         </div>
       )}
-      {accessToken && mapStatus === "error" && (
+      {accessToken && (mapStatus === "error" || mapLoadError) && (
         <p className="border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950" role="alert">
-          The map could not start. Check that WebGL is available and reload the page.
+          The map could not fully load. Check your connection, map access token, and WebGL support, then reload. Stop details remain available below.
         </p>
       )}
 

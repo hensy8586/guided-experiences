@@ -20,18 +20,25 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type");
-  const supabase = await createClient();
   let confirmed = false;
 
-  if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    confirmed = !error;
-  } else if (tokenHash && type && ALLOWED_OTP_TYPES.has(type)) {
-    const { error } = await supabase.auth.verifyOtp({
-      token_hash: tokenHash,
-      type: type as EmailOtpType,
-    });
-    confirmed = !error;
+  try {
+    if (code || (tokenHash && type && ALLOWED_OTP_TYPES.has(type))) {
+      const supabase = await createClient();
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        confirmed = !error;
+      } else if (tokenHash && type) {
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: type as EmailOtpType,
+        });
+        confirmed = !error;
+      }
+    }
+  } catch {
+    // Configuration/network failures must not leak diagnostics or confirm login.
+    confirmed = false;
   }
 
   if (confirmed) {

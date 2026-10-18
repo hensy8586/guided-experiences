@@ -162,17 +162,18 @@ export async function signUp(
 }
 
 export async function signOut() {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-
-  if (data?.claims) {
+  let failed = false;
+  try {
+    const supabase = await createClient();
+    // Let Supabase handle expired/missing sessions and clear its own cookies.
+    // A failed claims lookup must not skip the user's explicit logout request.
     const { error } = await supabase.auth.signOut({ scope: "local" });
-
-    if (error) {
-      redirect("/creator?signOutError=1");
-    }
+    failed = Boolean(error);
+  } catch {
+    failed = true;
   }
 
+  if (failed) redirect("/creator?signOutError=1");
   revalidatePath("/", "layout");
   redirect("/auth/sign-in");
 }
